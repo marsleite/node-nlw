@@ -1,4 +1,6 @@
 import axios from "axios";
+import prisma from "../prisma";
+import { sign } from 'jsonwebtoken';
 /**
  * Receber code(string
  * Recuperar o access token no github
@@ -41,7 +43,41 @@ class AuthenticateUserService {
       },
     });
 
-    return response.data;
+    const { login, id, avatar_url, name } = response.data
+
+    let user = await prisma.user.findFirst({
+      where: {
+        github_id: id
+      }
+    })
+
+    if (!user) {
+      await prisma.user.create({
+        data: {
+          github_id: id,
+          login,
+          avatar_url,
+          name
+        }
+      })
+    }
+
+    const token = sign(
+      {
+        user: {
+          name: user.name,
+          avatar_url: user. avatar_url,
+          id: user.id
+        }
+      },
+      process.env.JWT_SECRET,
+      {
+        subject: user.id,
+        expiresIn: "1d"
+      }
+    )
+
+    return { token, user };
   }
 }
 
